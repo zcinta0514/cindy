@@ -11,13 +11,26 @@ import { RemoteSessionStoreSubscriptionGate } from './remoteSessionStore';
 import { sessionPaneLayout } from './sessionPaneLayout';
 
 type Frame = { left: number; top: number; width: number; height: number };
-type Entry = { owner: string; frame: Frame; children: ReactNode };
+/** Which visible route owns the shared list: the full-width Home screen or the
+ * wide-layout sidebar of a task. */
+export type ResidentHomeSlot = 'home' | 'sidebar';
+type Entry = { owner: string; slot: ResidentHomeSlot; frame: Frame; children: ReactNode };
 const Context = createContext<{
   enabled: boolean;
   mounted: { current: boolean };
   publish(entry: Entry): void;
   host: React.RefObject<View | null>;
 } | null>(null);
+
+/** Only the route that is actually on screen may size the shared list. A pushed
+ * task leaves the Home screen mounted with a still-focused `useIsFocused()`, so
+ * the native route, not that lagging flag, decides who owns the frame. */
+export function visibleResidentHomeSlot(segments: string[]): ResidentHomeSlot | null {
+  if (segments.length === 0 || segments[0] === 'index'
+    || (segments[0] === 'devices' && (segments.length === 1 || segments[1] === 'index'))) return 'home';
+  if (segments[0] === 'sessions' && segments[1] === '[sessionId]') return 'sidebar';
+  return null;
+}
 
 export function useResidentHomeList() {
   const context = useContext(Context);
@@ -42,6 +55,7 @@ export function ResidentHomeListProvider({ children }: { children: ReactNode }) 
   const geometry = useAdaptiveWindow();
   const enabled = sessionPaneLayout(geometry).persistent;
   const segments = useSegments() as string[];
+  const slot = visibleResidentHomeSlot(segments);
   const { mode, hydrated } = useHomeMode();
   const homeRoute = segments.length === 0 || segments[0] === 'index'
     || (segments[0] === 'devices' && (segments.length === 1 || segments[1] === 'index'));
@@ -58,7 +72,16 @@ export function ResidentHomeListProvider({ children }: { children: ReactNode }) 
   const mounted = useRef(false);
   const [entry, setEntry] = useState<Entry | null>(null);
   const reduceMotion = useReduceMotionEnabled();
-  const publish = useCallback((next: Entry) => { setEntry(next); }, []);
+  // Late measurement callbacks cross route boundaries: a slot that is no longer
+  // the visible one must never resize or replace the list, or its window-sized
+  // frame stays painted over the task panes until the visible slot happens to
+  // measure again (Android wide layout, foldable landscape).
+  const slotRef = useRef(slot);
+  slotRef.current = slot;
+  const publish = useCallback((next: Entry) => {
+    if (next.slot !== slotRef.current) return;
+    setEntry(next);
+  }, []);
   const context = useMemo(() => ({ enabled, mounted, publish, host }), [enabled, publish]);
   useLayoutEffect(() => {
     mounted.current = enabled && !!entry;
@@ -82,25 +105,34 @@ export function ResidentHomeListProvider({ children }: { children: ReactNode }) 
 
 /** A route supplies a measuring slot, not another native list. Its header stays
  * in the native navigation hierarchy, outside the list's touch bounds. */
-export function ResidentHomeList({ children, focused, top, left, right }: {
-  children: ReactNode; focused: boolean; top: number; left: number; right: number;
+export function ResidentHomeList({ slot, children, focused, top, left, right }: {
+  slot: ResidentHomeSlot; children: ReactNode; focused: boolean; top: number; left: number; right: number;
 }) {
   const context = useContext(Context);
   const owner = useId();
+  const segments = useSegments() as string[];
   const anchor = useRef<View>(null);
   const latest = useRef({ children, focused });
   latest.current = { children, focused };
   const measureRevision = useRef(0);
   const measure = useCallback(() => {
     const revision = ++measureRevision.current;
-    if (!context?.enabled || !latest.current.focused || !context.host.current) return;
-    anchor.current?.measureInWindow((x, y, width, height) => {
-      context.host.current?.measureInWindow((hostX, hostY) => {
-        if (revision !== measureRevision.current || !latest.current.focused || width <= 0 || height <= 0) return;
-        context.publish({ owner, frame: { left: x - hostX, top: y - hostY, width, height }, children: latest.current.children });
+    const ownsList = visibleResidentHomeSlot(segments) === slot;
+    if (!context?.enabled || !ownsList || !latest.current.focused || !context.host.current) return;
+    const publish = (left: number, top: number, width: number, height: number) => {
+      if (revision !== measureRevision.current || !latest.current.focused || width <= 0 || height <= 0) return;
+      context.publish({ owner, slot, frame: { left, top, width, height }, children: latest.current.children });
+    };
+    // Layout coordinates ignore transient native transforms (route push, drawer
+    // slide). Android re-hosts some drawers outside the host's native subtree,
+    // where there is no common ancestor left to measure against; fall back to the
+    // window delta for those.
+    anchor.current?.measureLayout(context.host.current, publish, () => {
+      anchor.current?.measureInWindow((x, y, width, height) => {
+        context.host.current?.measureInWindow((hostX, hostY) => publish(x - hostX, y - hostY, width, height));
       });
     });
-  }, [context, owner]);
+  }, [context, owner, segments, slot]);
   useLayoutEffect(() => {
     measure();
     return () => { ++measureRevision.current; };

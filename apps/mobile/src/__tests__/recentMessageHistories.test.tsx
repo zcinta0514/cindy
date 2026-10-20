@@ -73,7 +73,7 @@ describe('resident five-task message lists outside route lifetimes', () => {
   function DrawerHomeProbe() {
     const resident = useResidentHomeList();
     return <div data-drawer="true" data-resident-enabled={resident.enabled}>
-      {resident.enabled ? <ResidentHomeList focused top={0} left={0} right={0}>
+      {resident.enabled ? <ResidentHomeList slot="sidebar" focused top={0} left={0} right={0}>
         <button data-drawer-task-list="true">Drawer tasks</button>
       </ResidentHomeList> : <button data-inline-task-list="true">Inline tasks</button>}
     </div>;
@@ -239,7 +239,7 @@ describe('resident five-task message lists outside route lifetimes', () => {
     await act(async () => root.render(
       <RecentMessageHistoriesProvider>
         <ResidentHomeListProvider>
-          <ResidentHomeList focused top={0} left={0} right={0}>
+          <ResidentHomeList slot="home" focused top={0} left={0} right={0}>
             <button data-resident-task-list="true">Tasks</button>
           </ResidentHomeList>
           <RecentMessageHistories activeKey={key('a')}>
@@ -267,12 +267,12 @@ describe('resident five-task message lists outside route lifetimes', () => {
     };
     const Scene = ({ task }: { task: string }) => <RecentMessageHistoriesProvider>
       <ResidentHomeListProvider>
-        {task === 'home' ? <ResidentHomeList focused top={0} left={0} right={0}>
+        {task === 'home' ? <ResidentHomeList slot="home" focused top={0} left={0} right={0}>
           <List task={task} />
         </ResidentHomeList> : <MessageHistoryOverlay enabled={false}>
           <div data-panel>
             <span data-panel-title>Tasks</span>
-            <ResidentHomeList focused top={0} left={0} right={0}><List task={task} /></ResidentHomeList>
+            <ResidentHomeList slot="sidebar" focused top={0} left={0} right={0}><List task={task} /></ResidentHomeList>
           </div>
         </MessageHistoryOverlay>}
       </ResidentHomeListProvider>

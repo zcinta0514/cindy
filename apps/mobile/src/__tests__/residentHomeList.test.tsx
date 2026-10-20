@@ -8,6 +8,8 @@ import { ResidentHomeList, ResidentHomeListProvider } from '../session/ResidentH
 
 const state = vi.hoisted(() => ({
   platform: 'ios', spring: vi.fn((target: number) => target), hydrated: true, reduceMotion: true, progress: null as any, slide: null as any, mode: 'tasks', segments: ['devices'], width: 1000, anchorWidth: 1000, mounts: 0, unmounts: 0,
+  measureLayoutSupported: true, windowOffset: 0, sidebarAnchorWidth: null as number | null,
+  deferMeasurement: false, pending: [] as { width: number; run(): void }[],
 }));
 vi.mock('../session/useHomeMode', () => ({ useHomeMode: () => ({ mode: state.mode, hydrated: state.hydrated }) }));
 vi.mock('expo-router', () => ({ useSegments: () => state.segments }));
@@ -27,9 +29,22 @@ vi.mock('react-native', async () => {
     Platform: { get OS() { return state.platform; } },
     View: React.forwardRef(({ children, onLayout, ...props }: any, ref) => {
       React.useImperativeHandle(ref, () => ({
-        measureLayout: (_: any, callback: any) => callback(0, 80, state.anchorWidth, 720),
-        measureInWindow: (callback: any) => callback(0, 80, state.anchorWidth, 720),
-      }));
+        // Fabric reports layout metrics, so a pushed route's transform does not leak in.
+        measureLayout: (_: any, callback: any, onFail?: () => void) => {
+          if (!state.measureLayoutSupported) { onFail?.(); return; }
+          // The sidebar slot uses its own chrome height (96), so a task's slot can be
+          // narrower than the Home screen's while both are mounted.
+          const top = props.style?.marginTop ?? 80;
+          const width = top === 96 && state.sidebarAnchorWidth !== null
+            ? state.sidebarAnchorWidth : state.anchorWidth;
+          if (state.deferMeasurement) { state.pending.push({ width, run: () => callback(0, top, width, 720) }); return; }
+          callback(0, top, width, 720);
+        },
+        // The measuring slot is the only pointerEvents="none" view; roots stay at the window origin.
+        measureInWindow: (callback: any) => (props.pointerEvents === 'none'
+          ? callback(state.windowOffset, (props.style?.marginTop ?? 80) + state.windowOffset, state.anchorWidth, 720)
+          : callback(state.windowOffset, state.windowOffset, 1000, 800)),
+      }), []);
       React.useEffect(() => { onLayout?.(); }, [onLayout]);
       return <div data-pointer={props.pointerEvents}>{children}</div>;
     }),
@@ -37,7 +52,11 @@ vi.mock('react-native', async () => {
 });
 vi.mock('react-native-reanimated', async () => {
   const { useRef } = await import('react');
-  return { default: { View: ({ children, pointerEvents }: any) => <div data-host data-pointer={pointerEvents}>{children}</div> },
+  return { default: { View: ({ children, pointerEvents, style }: any) => {
+      const flat = Object.assign({}, ...(Array.isArray(style) ? style : [style]).map((part: any) => part ?? {}));
+      return <div data-host data-pointer={pointerEvents}
+        data-frame={[flat.left, flat.top, flat.width, flat.height].join(',')}>{children}</div>;
+    } },
     useSharedValue: (value: number) => { const ref = useRef({ value }); state.progress = ref.current; return ref.current; },
     useAnimatedStyle: (factory: () => any) => { state.slide = factory; return factory(); },
     cancelAnimation: () => {}, withSpring: (target: number) => state.spring(target),
@@ -47,7 +66,8 @@ const roots: ReturnType<typeof createRoot>[] = [];
 afterEach(() => {
   act(() => roots.splice(0).forEach(root => root.unmount()));
   state.platform = 'ios'; state.spring.mockClear(); state.hydrated = true; state.reduceMotion = true; state.mode = 'tasks'; state.segments = ['devices']; state.width = 1000; state.anchorWidth = 1000;
-  state.mounts = 0; state.unmounts = 0;
+  state.mounts = 0; state.unmounts = 0; state.measureLayoutSupported = true; state.windowOffset = 0;
+  state.deferMeasurement = false; state.pending = []; state.sidebarAnchorWidth = null;
 });
 const ListProbe = memo(function ListProbe({ onSelect }: { onSelect(): void }) {
   const [position, setPosition] = useState(0);
@@ -55,12 +75,12 @@ const ListProbe = memo(function ListProbe({ onSelect }: { onSelect(): void }) {
   return <><button data-scroll onClick={() => setPosition(240)}>scroll</button>
     <button data-select onClick={onSelect}>{position}</button></>;
 }, homeRowPropsEqual);
-function Scene({ detail, homeSelect, detailSelect }: any) {
+function Scene({ detail, homeSelect, detailSelect, homeFocused = !detail, homeTop = 80 }: any) {
   return <ResidentHomeListProvider>
-    <ResidentHomeList focused={!detail} top={80} left={0} right={0}>
+    <ResidentHomeList slot="home" focused={homeFocused} top={homeTop} left={0} right={0}>
       <ListProbe onSelect={homeSelect} />
     </ResidentHomeList>
-    {detail ? <ResidentHomeList focused top={80} left={0} right={0}>
+    {detail ? <ResidentHomeList slot="sidebar" focused top={96} left={0} right={0}>
       <ListProbe onSelect={detailSelect} />
     </ResidentHomeList> : null}
   </ResidentHomeListProvider>;
@@ -135,4 +155,49 @@ it('switches Android home modes in place, because each pane draws its own bar', 
   render(); state.mode = 'teammates'; render();
   expect(state.spring).not.toHaveBeenCalled();
   expect(state.progress.value).toBe(1);
+});
+
+// The Home screen stays mounted behind a pushed task, and its native measurement can
+// come back after the sidebar has already published (slow device, foldable landscape,
+// a list re-layout while the task streams). Native measurement callbacks are async;
+// `flush` replays them in an explicit order instead of the shared mock's synchronous one.
+function flush(width?: number) {
+  act(() => {
+    const run = state.pending.filter(entry => width === undefined || entry.width === width);
+    state.pending = state.pending.filter(entry => !run.includes(entry));
+    run.forEach(entry => entry.run());
+  });
+}
+
+it('ignores a late window-sized measurement from the Home screen after a task is pushed', () => {
+  state.deferMeasurement = true; state.sidebarAnchorWidth = 320;
+  const host = document.createElement('div'); const root = createRoot(host); roots.push(root);
+  const homeSelect = vi.fn(), detailSelect = vi.fn();
+  const render = (props: any) => act(() => root.render(<Scene homeSelect={homeSelect} detailSelect={detailSelect} {...props} />));
+  render({ detail: false });
+  flush();
+  expect(host.querySelector('[data-host]')?.getAttribute('data-frame')).toBe('0,80,1000,720');
+  // The pushed task keeps the Home screen mounted, so both slots are laid out; the sidebar
+  // owns the list because the route, not the lagging `useIsFocused()`, decides.
+  state.segments = ['sessions', '[sessionId]'];
+  render({ detail: true, homeFocused: true });
+  flush(320);
+  expect(host.querySelector('[data-host]')?.getAttribute('data-frame')).toBe('0,96,320,720');
+  // A Home measurement that arrives after the sidebar already published must not resize the
+  // list back to the whole window nor take over its actions.
+  render({ detail: true, homeFocused: true, homeTop: 81 });
+  flush(1000);
+  expect(host.querySelector('[data-host]')?.getAttribute('data-frame')).toBe('0,96,320,720');
+  act(() => (host.querySelector('[data-select]') as HTMLButtonElement).click());
+  expect(detailSelect).toHaveBeenCalled(); expect(homeSelect).not.toHaveBeenCalled();
+});
+
+it('falls back to window coordinates when the drawer is re-hosted outside the host subtree', () => {
+  // Android re-hosts some drawers above the root, so the slot and the list host share no
+  // native ancestor and Fabric's ancestor-based measurement fails.
+  state.measureLayoutSupported = false; state.windowOffset = 40; state.anchorWidth = 320;
+  state.segments = ['sessions', '[sessionId]'];
+  const host = document.createElement('div'); const root = createRoot(host); roots.push(root);
+  act(() => root.render(<Scene detail homeSelect={() => {}} detailSelect={() => {}} />));
+  expect(host.querySelector('[data-host]')?.getAttribute('data-frame')).toBe('0,96,320,720');
 });

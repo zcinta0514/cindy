@@ -14,7 +14,7 @@ describe('inactive session list subscriptions', () => {
       expect(screen).toContain('<RemoteSessionStoreSubscriptionGate enabled={screenFocused}>');
     }
     // Home mirrors feed the task badge from the teammate pane; list presentation remains hidden.
-    expect(source('src/session/HomeSurface.tsx')).toContain('<ResidentHomeList focused={screenFocused && active}');
+    expect(source('src/session/HomeSurface.tsx')).toContain("focused={screenFocused && active}");
   });
 
   it('pauses list and row subscriptions while their route is covered', () => {
