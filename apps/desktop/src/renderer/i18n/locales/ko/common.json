@@ -12577,6 +12577,12 @@
       "viewOriginal": "원문 보기",
       "viewGhostCard": "플러그인 카드 보기"
     },
+    "turnResources": {
+      "title": "이번 응답에 사용",
+      "workflow": "워크플로: {{names}}",
+      "skill": "스킬: {{names}}",
+      "plugin": "플러그인: {{names}}"
+    },
     "modelMismatch": {
       "notice": "이번 턴은 선택한 {{selected}} 대신 {{actual}} 모델이 응답했습니다(제공자 측 임시 다운그레이드)"
     },

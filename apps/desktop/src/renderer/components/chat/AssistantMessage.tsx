@@ -3,6 +3,8 @@ import { useBotChatQuote } from '@/features/bots/botChatQuoteContext';
 import { botReplyQuoteFor } from '@/features/bots/botDmQuote';
 import { hasRichAnswer, richAnswerText } from '@cindy/maker-shared/rich-answer';
 import { BotLearningFooter } from '@/features/bots/BotLearningFooter';
+import { TurnResourcesFooter } from './TurnResourcesFooter';
+import type { TurnResourceReceipt } from '@cindy/maker-shared/turn-resources';
 import { BotStarterOptions } from '@/features/bots/BotStarterOptions';
 import { stripStarterOptionList } from '../../../shared/botStarterOptions';
 import { BotSessionTaskResultCard } from '@/features/bots/BotSessionTaskResultCard';
@@ -213,6 +215,8 @@ interface AssistantMessageProps {
   botStarterOptions?: string[];
   starterOptionsLocked?: boolean;
   botTaskResults?: BotCollaborationMeta[];
+  /** Complete host-stamped receipt attached to this turn's final reply. */
+  turnResources?: readonly TurnResourceReceipt[];
   /** Per-turn 费用 (USD) — 仅该轮最后一条 assistant 有值, action bar 时间旁显示。 */
   turnMoney?: RegionalMoney;
   turnCostUsd?: number;
@@ -252,6 +256,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   showActionBar = false,
   simplifiedBotConversation = false,
   botTaskResults,
+  turnResources,
   botLearning,
   botStarterOptions,
   starterOptionsLocked,
@@ -505,6 +510,7 @@ export const AssistantMessage = memo(function AssistantMessage({
       {/* Streaming → bar not mounted at all (V1.2 验收 "流式期间不挂载");
           非 turn 收尾正文(showActionBar=false)同样不挂,消息流保持紧凑。
           伙伴私聊的气泡把操作栏挂在气泡右侧(BubbleHoverToolbar),这里不再另起一行。 */}
+      {showActionBar && !isStreaming && <TurnResourcesFooter resources={turnResources} />}
       {!botBubble && actionBar}
     </div>
   );

@@ -12576,6 +12576,12 @@
       "viewOriginal": "檢視原文",
       "viewGhostCard": "檢視插件卡片"
     },
+    "turnResources": {
+      "title": "本輪使用",
+      "workflow": "工作流程：{{names}}",
+      "skill": "Skill：{{names}}",
+      "plugin": "插件：{{names}}"
+    },
     "modelMismatch": {
       "notice": "本輪由 {{actual}} 響應，而非所選的 {{selected}}(服務端臨時降級)"
     },

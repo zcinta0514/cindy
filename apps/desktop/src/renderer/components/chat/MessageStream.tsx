@@ -7116,6 +7116,7 @@ const MessageItem = memo(function MessageItem({
             botStarterOptions={message.botStarterOptions}
             starterOptionsLocked={starterOptionsLocked}
             botTaskResults={message.turnCompleted === true ? message.botTaskResults : undefined}
+            turnResources={message.turnCompleted === true ? message.turnResources : undefined}
           />
         </>,
       );

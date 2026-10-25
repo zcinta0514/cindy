@@ -12631,6 +12631,12 @@
       "viewOriginal": "View original",
       "viewGhostCard": "View plugin card"
     },
+    "turnResources": {
+      "title": "Used This Turn",
+      "workflow": "Workflows: {{names}}",
+      "skill": "Skills: {{names}}",
+      "plugin": "Plugins: {{names}}"
+    },
     "modelMismatch": {
       "notice": "This turn was answered by {{actual}} instead of the selected {{selected}} (temporarily downgraded by the provider)"
     },

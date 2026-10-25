@@ -7,6 +7,10 @@ import { i18n } from '@/i18n';
 import { ConfirmDialogProvider } from '@/components/ui/confirm-dialog-provider';
 import { toast } from '@/lib/toast';
 import { AssistantMessage } from '../AssistantMessage';
+import { TurnResourcesFooter } from '../TurnResourcesFooter';
+import { makerChatStore } from '@/lib/makerChatStore';
+import type { Message } from '@/lib/ccAgent.types';
+import type { TurnResourceReceipt } from '@cindy/maker-shared/turn-resources';
 import { ChatImageView } from '../ChatImageView';
 import { MarkdownRenderer } from '../MarkdownRenderer';
 import { ImageLightbox } from '../ImageLightbox';
@@ -335,5 +339,67 @@ describe('shared production image interactions', () => {
     fireEvent.contextMenu(screen.getByAltText('preview'));
     expect(screen.queryByRole('menuitem')).toBeNull();
     expect(fileCopy).not.toHaveBeenCalled();
+  });
+});
+
+/** #7111: production history + final reply; missing process rows must not lose receipts.
+ * Minimal input: one sealed assistant row. Unit tier; reuses this file’s existing
+ * AssistantMessage environment instead of adding a second heavy renderer import. */
+const resources: TurnResourceReceipt[] = [
+  { kind: 'plugin', id: 'tr_000000000000000000000001', name: 'GitHub' },
+  { kind: 'skill', id: 'tr_000000000000000000000002', name: 'issue 核查' },
+  { kind: 'workflow', id: 'tr_000000000000000000000003', name: '内容发布' },
+];
+
+function reply(props: Partial<Parameters<typeof AssistantMessage>[0]> = {}) {
+  return (
+    <MemoryRouter>
+      <Tooltip.Provider>
+        <ConfirmDialogProvider>
+          <AssistantMessage workingDir="/fixture" content="任务结果" turnResources={resources} {...props} />
+        </ConfirmDialogProvider>
+      </Tooltip.Provider>
+    </MemoryRouter>
+  );
+}
+
+describe('final-reply usage footer', () => {
+  beforeEach(async () => { await i18n.changeLanguage('zh-CN'); });
+  it('restores the full receipt from the final row without any loaded process messages', () => {
+    const row = {
+      id: 'row', clientId: 'reply', sessionId: 'session', role: 'assistant',
+      content: '任务结果', createdAt: '2026-10-25T00:00:00.000Z',
+      agentMeta: { turnCompleted: true, turnResources: resources },
+    } as Message;
+    const [restored] = makerChatStore.__mapServerMessagesForTest([row]);
+    expect(restored?.turnResources).toEqual(resources);
+    render(<TurnResourcesFooter resources={restored?.turnResources} />);
+    const footer = screen.getByRole('region', { name: '本轮使用' });
+    expect(footer.textContent).toBe('本轮使用工作流：内容发布Skill：issue 核查插件：GitHub');
+    const [failed] = makerChatStore.__mapServerMessagesForTest([
+      { ...row, agentMeta: { ...row.agentMeta, turnCompleted: false } },
+    ]);
+    expect(failed?.turnResources).toBeUndefined();
+  });
+
+  it('shows only on a completed final reply and keeps Copy limited to the reply body', async () => {
+    const view = render(reply());
+    expect(screen.queryByRole('region', { name: '本轮使用' })).toBeNull();
+    view.rerender(reply({ showActionBar: true, isStreaming: true }));
+    expect(screen.queryByRole('region', { name: '本轮使用' })).toBeNull();
+    view.rerender(reply({ showActionBar: true }));
+    expect(screen.getByRole('region', { name: '本轮使用' })).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: i18n.t('chat.messageActionBar.copy') }));
+    });
+    expect(writeText).toHaveBeenCalledWith('任务结果');
+    view.rerender(reply({ showActionBar: true, turnResources: [] }));
+    expect(screen.queryByRole('region', { name: '本轮使用' })).toBeNull();
+  });
+
+  it('omits unused categories instead of showing an empty card or category placeholder', () => {
+    render(<TurnResourcesFooter resources={[resources[0]!]} />);
+    expect(screen.getByRole('region', { name: '本轮使用' }).textContent).toBe('本轮使用插件：GitHub');
+    expect(screen.queryByText(/Skill：|工作流：/)).toBeNull();
   });
 });

@@ -12577,6 +12577,12 @@
       "viewOriginal": "原文を表示",
       "viewGhostCard": "プラグインカードを表示"
     },
+    "turnResources": {
+      "title": "今回の使用項目",
+      "workflow": "ワークフロー: {{names}}",
+      "skill": "スキル: {{names}}",
+      "plugin": "プラグイン: {{names}}"
+    },
     "modelMismatch": {
       "notice": "このターンは選択中の {{selected}} ではなく {{actual}} が応答しました(プロバイダー側で一時的にダウングレード)"
     },
