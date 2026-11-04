@@ -51,6 +51,13 @@ export function registerMedia(el: HTMLMediaElement): () => void {
   registered.add(el);
   el.addEventListener('play', onPlay);
   return () => {
+    // A detached element can keep playing in Chromium. Stop it before losing
+    // the bus reference, including pending autoplay that still reports paused.
+    try {
+      el.pause();
+    } catch {
+      /* Element is being destroyed; still release the listener and registry. */
+    }
     el.removeEventListener('play', onPlay);
     registered.delete(el);
   };

@@ -3,10 +3,11 @@
 // recover from a failed source patch, and stop when its message leaves view.
 // Markdown renderer tests mock this component, so they cannot catch these bugs.
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { Tooltip } from '@/components/ui/tooltip';
 import { ChatVideoView } from '../ChatVideoView';
 import { VideoLightbox } from '../VideoLightbox';
+import { AttachmentCollectionContext } from '../AttachmentCollectionContext';
 import { registerMedia, __resetMediaBusForTests } from '@/lib/mediaPlaybackBus';
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('@/hooks/useRemoteMediaUrl', () => ({ useRemoteMediaUrl: (url: string) => url }));
@@ -37,6 +38,7 @@ afterEach(() => {
   cleanup();
   __resetMediaBusForTests();
   vi.restoreAllMocks();
+  vi.useRealTimers();
   if (showModalDescriptor)
     Object.defineProperty(HTMLDialogElement.prototype, 'showModal', showModalDescriptor);
   else Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
@@ -253,3 +255,104 @@ it('coordinates inline videos and audio through playback and retry', () => {
   expect(pause.mock.contexts).not.toContain(second);
   unregister();
 });
+
+// #8735, unit: exercise the real preview and playback bus. Existing cases only
+// cover inline players / fullscreen menus, not audio defaults or a preview that
+// leaves via collection navigation / parent teardown instead of handleClose.
+// Minimal failure: one playing media element whose preview is unmounted.
+function markPlaying(media: HTMLMediaElement) {
+  Object.defineProperty(media, 'paused', { configurable: true, value: false });
+  pause.mockImplementation(function (this: HTMLMediaElement) {
+    Object.defineProperty(this, 'paused', { configurable: true, value: true });
+  });
+}
+
+it.each(['audio', 'video'] as const)('%s preview stops when its owner unmounts', (kind) => {
+  const view = render(
+    <VideoLightbox
+      src={`https://media.test/clip.${kind === 'audio' ? 'wav' : 'mp4'}`}
+      kind={kind}
+      onClose={vi.fn()}
+    />,
+    { wrapper: Tooltip.Provider },
+  );
+  const media = document.querySelector(kind)! as HTMLMediaElement;
+  markPlaying(media);
+  view.unmount();
+  expect(media.isConnected).toBe(false);
+  expect(media.paused).toBe(true);
+});
+
+it('plays an audio preview once while preserving the existing video loop', () => {
+  const view = render(
+    <VideoLightbox src="https://media.test/clip.wav" kind="audio" onClose={vi.fn()} />,
+    { wrapper: Tooltip.Provider },
+  );
+  // Native loop controls whether Chromium raises ended or starts the file again.
+  expect(document.querySelector('audio')!.loop).toBe(false);
+  view.unmount();
+  render(<VideoLightbox src="https://media.test/clip.mp4" onClose={vi.fn()} />, {
+    wrapper: Tooltip.Provider,
+  });
+  expect(document.querySelector('video')!.loop).toBe(true);
+});
+
+it('stops the previous audio when the user selects the next attachment', () => {
+  render(
+    <AttachmentCollectionContext.Provider
+      value={[
+        {
+          id: 'first',
+          source: 'https://media.test/first.wav',
+          name: 'First',
+          kind: 'audio',
+          media: true,
+        },
+        {
+          id: 'second',
+          source: 'https://media.test/second.wav',
+          name: 'Second',
+          kind: 'audio',
+          media: true,
+        },
+      ]}
+    >
+      <VideoLightbox src="https://media.test/first.wav" kind="audio" onClose={vi.fn()} />
+    </AttachmentCollectionContext.Provider>,
+    { wrapper: Tooltip.Provider },
+  );
+  const first = document.querySelector('audio')!;
+  markPlaying(first);
+  fireEvent.click(document.querySelector('button[aria-label="attachmentPreview.next"]')!);
+  expect(document.querySelector('audio')!.getAttribute('src')).toBe(
+    'https://media.test/second.wav',
+  );
+  expect(first.isConnected).toBe(false);
+  expect(first.paused).toBe(true);
+});
+
+it.each(['close', 'scrim', 'escape'] as const)(
+  'stops audio immediately on %s and returns its position after the fade',
+  async (exit) => {
+    vi.useFakeTimers();
+    const onClose = vi.fn();
+    render(<VideoLightbox src="https://media.test/clip.wav" kind="audio" onClose={onClose} />, {
+      wrapper: Tooltip.Provider,
+    });
+    const media = document.querySelector('audio')!;
+    markPlaying(media);
+    media.currentTime = 1.25;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    if (exit === 'escape') fireEvent.keyDown(document, { key: 'Escape' });
+    else if (exit === 'scrim') fireEvent.click(document.querySelector('.modal-scrim')!);
+    else fireEvent.click(document.querySelector('button[aria-label="chat.lightbox.close"]')!);
+    expect(media.paused).toBe(true);
+    expect(onClose).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(onClose).toHaveBeenCalledWith(1.25);
+  },
+);

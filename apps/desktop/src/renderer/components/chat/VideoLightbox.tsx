@@ -14,8 +14,8 @@ import { AttachmentCollectionPreview, useOpeningCollection } from './AttachmentC
  *     close (users need to drag the seek bar / hit pause without dismissing).
  *   - Right-click (xdt-video:// only): 复制视频 / 打开视频所在目录。复制走
  *     OS 原生文件剪贴板(Win/Mac),粘贴出来是文件本体而不是字节流。
- *   - <video controls autoPlay loop preload="auto"> — autoplay is fine because
- *     the user explicitly clicked the cover to open the lightbox.
+ *   - Autoplay follows the explicit preview action. Videos retain looping; audio
+ *     plays once so a local recording does not repeat without a loop control.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -224,7 +224,7 @@ function VideoLightboxContent({
         src={src}
         controls
         autoPlay
-        loop
+        loop={kind === 'video'}
         preload="metadata"
           playsInline
           onLoadedMetadata={() => {
