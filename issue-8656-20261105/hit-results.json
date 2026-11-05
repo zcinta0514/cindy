@@ -1,0 +1,142 @@
+[
+  {
+    "mode": "before",
+    "top": {
+      "x": 78,
+      "y": 0,
+      "width": 280,
+      "height": 93,
+      "top": 0,
+      "right": 358,
+      "bottom": 93,
+      "left": 78
+    },
+    "hole": {
+      "x": 78,
+      "y": 0,
+      "width": 202,
+      "height": 92,
+      "top": 0,
+      "right": 280,
+      "bottom": 92,
+      "left": 78
+    },
+    "buttons": [
+      {
+        "label": "rightSidebar.tabs.controls.detachAria",
+        "rect": {
+          "x": 262,
+          "y": 55,
+          "width": 28,
+          "height": 28,
+          "top": 55,
+          "right": 290,
+          "bottom": 83,
+          "left": 262
+        },
+        "centerHitsButton": false,
+        "hitTestId": "right-sidebar-rail-chrome-actions-hit-hole"
+      },
+      {
+        "label": "rightSidebar.tabs.controls.maximizeAria",
+        "rect": {
+          "x": 292,
+          "y": 55,
+          "width": 28,
+          "height": 28,
+          "top": 55,
+          "right": 320,
+          "bottom": 83,
+          "left": 292
+        },
+        "centerHitsButton": true,
+        "hitTestId": null
+      },
+      {
+        "label": "contentHeader.collapsePanel",
+        "rect": {
+          "x": 322,
+          "y": 55,
+          "width": 28,
+          "height": 28,
+          "top": 55,
+          "right": 350,
+          "bottom": 83,
+          "left": 322
+        },
+        "centerHitsButton": true,
+        "hitTestId": null
+      }
+    ]
+  },
+  {
+    "mode": "after",
+    "top": {
+      "x": 78,
+      "y": 0,
+      "width": 280,
+      "height": 93,
+      "top": 0,
+      "right": 358,
+      "bottom": 93,
+      "left": 78
+    },
+    "hole": {
+      "x": 78,
+      "y": 0,
+      "width": 202,
+      "height": 46,
+      "top": 0,
+      "right": 280,
+      "bottom": 46,
+      "left": 78
+    },
+    "buttons": [
+      {
+        "label": "rightSidebar.tabs.controls.detachAria",
+        "rect": {
+          "x": 262,
+          "y": 55,
+          "width": 28,
+          "height": 28,
+          "top": 55,
+          "right": 290,
+          "bottom": 83,
+          "left": 262
+        },
+        "centerHitsButton": true,
+        "hitTestId": null
+      },
+      {
+        "label": "rightSidebar.tabs.controls.maximizeAria",
+        "rect": {
+          "x": 292,
+          "y": 55,
+          "width": 28,
+          "height": 28,
+          "top": 55,
+          "right": 320,
+          "bottom": 83,
+          "left": 292
+        },
+        "centerHitsButton": true,
+        "hitTestId": null
+      },
+      {
+        "label": "contentHeader.collapsePanel",
+        "rect": {
+          "x": 322,
+          "y": 55,
+          "width": 28,
+          "height": 28,
+          "top": 55,
+          "right": 350,
+          "bottom": 83,
+          "left": 322
+        },
+        "centerHitsButton": true,
+        "hitTestId": null
+      }
+    ]
+  }
+]
