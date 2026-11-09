@@ -1,0 +1,102 @@
+{
+  "head": "11b1bfa5c3c555f8b1d2bea7f081e209a5c3067a",
+  "appWrappedControls": {
+    "zoom": 0.5,
+    "top": {
+      "x": 78,
+      "y": 0,
+      "width": 280,
+      "height": 93,
+      "top": 0,
+      "right": 358,
+      "bottom": 93,
+      "left": 78
+    },
+    "hole": {
+      "x": 78,
+      "y": 0,
+      "width": 202,
+      "height": 46,
+      "top": 0,
+      "right": 280,
+      "bottom": 46,
+      "left": 78
+    },
+    "buttons": [
+      {
+        "label": "在独立窗口中打开当前标签",
+        "rect": {
+          "x": 262,
+          "y": 55,
+          "width": 28,
+          "height": 28,
+          "top": 55,
+          "right": 290,
+          "bottom": 83,
+          "left": 262
+        },
+        "centerHitsButton": true,
+        "hitTestId": null,
+        "hitTag": "svg"
+      },
+      {
+        "label": "最大化侧栏",
+        "rect": {
+          "x": 292,
+          "y": 55,
+          "width": 28,
+          "height": 28,
+          "top": 55,
+          "right": 320,
+          "bottom": 83,
+          "left": 292
+        },
+        "centerHitsButton": true,
+        "hitTestId": null,
+        "hitTag": "svg"
+      },
+      {
+        "label": "关闭侧栏",
+        "rect": {
+          "x": 322,
+          "y": 55,
+          "width": 28,
+          "height": 28,
+          "top": 55,
+          "right": 350,
+          "bottom": 83,
+          "left": 322
+        },
+        "centerHitsButton": true,
+        "hitTestId": null,
+        "hitTag": "path"
+      }
+    ]
+  },
+  "boundary": {
+    "zoom": 0.5,
+    "button": {
+      "x": 220,
+      "y": 9,
+      "width": 28,
+      "height": 28,
+      "top": 9,
+      "right": 248,
+      "bottom": 37,
+      "left": 220
+    },
+    "main": {
+      "x": 221.015625,
+      "y": 0,
+      "width": 2338.984375,
+      "height": 46,
+      "top": 0,
+      "right": 2560,
+      "bottom": 46,
+      "left": 221.015625
+    },
+    "centerHitsButton": true,
+    "nativeBackgroundCGEvent": "posted; no observed navigation; not accepted",
+    "nativeForeground": "USER_INPUT_ACTIVE; no input sent; not accepted"
+  }
+}
